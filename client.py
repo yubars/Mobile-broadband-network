@@ -56,27 +56,12 @@ def wait_for_min( mins ):
 			break
 
 
-#TCP socket open
-def set_tcp_socket( server_addr, server_port ):
-	try:
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		return s
-	except socket.error as e:
-		if s:
-			s.close() 
-		print >> sys.stderr, "could not open socket: ", server_addr,":",server_port, e
-		raise
-
-
 #UDP socket open
 def set_udp_socket( iface, port ):
      try:
           #UDP
           s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
           s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-          #s.setblocking(0) ???
-          
           #check pppX or ICE and bind
           if ( str(iface) == 'eth1' ):
                client_addr = '10.110.111.2'
@@ -92,7 +77,7 @@ def set_udp_socket( iface, port ):
           raise
 
 
-#TCP/UDP socket close
+#UDP socket close
 def unset_socket( socket ):
 	try:
 		socket.close()
@@ -105,12 +90,8 @@ def unset_socket( socket ):
 def send_socket( s, server_addr, server_port, iface, nr_packets, epoch, filename ):
 	next_send_time = 0
 	global f
-	#rcv_packets = []
 	file = 'CLIENT-'+iface+'-'+filename+time.strftime("%m%d%H:%M")
-	#with open(file + ".csv", "a") as csvfile:
-        #	w = csv.writer(csvfile, delimiter=',')
-	#        w.writerow(['sent_time', 'received_time', 'rtt', 'epoch', 'pkt-Nr', 'Delta', 'Jitter', 'cur_rrc', 'cur_mode', 'cur_submode', 'cur_cellid', 'cur_lac', 'cur_rssi'])
-
+	
 	for i in range(nr_packets):
 		# wait for next send time
 		while True:
@@ -154,81 +135,21 @@ def send_socket( s, server_addr, server_port, iface, nr_packets, epoch, filename
 					with open(file + ".csv", "a") as cf:
                                			w1 = csv.writer(cf, delimiter=',')
 						w1.writerow([int(round(send_timestamp)), int(round(recv_timestamp)), round(float(recv_timestamp-send_timestamp),3), epoch, packet_nr, cur_rrc_state, cur_mode, cur_submode, cur_cellid, cur_lac, cur_rssi])
-						#rcv_packets.append([send_timestamp, epoch, packet_nr, recv_timestamp-send_timestamp, cur_rrc_state, cur_mode, cur_submode, cur_cellid, cur_lac, cur_rssi])
-		# send packet
+					
 		send_timestamp = time.time()
 		header = HEADER_FORMAT.pack(send_timestamp, epoch, i)
 		payload = header + PADDING
 		try:
-			#print s 
-			#print 'before\n'
 			s.sendto(payload, (server_addr, server_port))
 		except Exception as e:
 			print >> sys.stderr, 'sendto error:', e
-			#break
 			print 'INTERFACE Problem...getting new socket.... \n'
-			#s, client_addr = regen(s, iface, server_port)
 			f = 1
-	        	#evaluate_packet( rcv_packets, epoch, nr_packets, ('CLIENT-'+iface+'-'+filename+time.strftime("%m%d%H:%M")) )
-                	break
+	        	break
 		# next send time
 		next_send_time = time.time() + 1
 	print i
 	return i
-
-#regenrate socket after interface down
-def regen(s1, iface, server_port):
-	try:
-		unset_socket(s1)
-	except:
-		pass
-
-	try:
-                pathinfo.stop()
-        except:
-                pass
-
-	try:
-                interfaceinfo.stop()
-        except:
-                pass
-
-	while True:
-		try:
-			# MULTI
-			interfaceinfo.start()
-			break
-        	except:
-			sleep(0.1)
-                	pass
-
-	try:
-		# pathinfo
-		pathinfo.start()
-	except:
-		pass
-
-	while True:
-		try:
-			socket, client_addr = set_udp_socket( iface, server_port )
-			print 'UDP: %s:%d' % (client_addr, server_port) + '\n'
-			break
-		except:
-			time.sleep(0.1)
-			print >> sys.stderr, '\n', 'wait for socket'
-	return socket, client_addr
-
-
-#packet loss
-def packet_loss(nr_packets, rcv_packets):
-	nr_packets_received = len(rcv_packets)
-	print 'packet sent packet received %d %d' % (nr_packets, nr_packets_received) + '\n' 
-	nr_loss = nr_packets - nr_packets_received
-	print 'loss no %d' % nr_loss + '\n'
-	percent_loss = (float(nr_loss)/float(nr_packets)) * 100
-	print 'packet loss %.2f' % percent_loss + ' percent\n'
-	return percent_loss
-
 
 #receive
 def recv_socket( s, epoch ):
@@ -255,38 +176,6 @@ def wait_for_interface( iface ):
 
 
 def evaluate_packet( packets, epoch, nr_packets, filename ):
-	with open(filename + ".csv", "a") as csvfile:
-		w = csv.writer(csvfile, delimiter=',')
-
-		packet_dict={}
-		for packet in packets:
-			packet_dict[packet[2]] = packet
-
-		w.writerow(['timestamp', 'epoch', 'pkt-Nr', 'Delta', 'Jitter', 'rtt', 'cur_rrc', 'cur_mode', 'cur_submode', 'cur_cellid', 'cur_lac', 'cur_rssi'])
-
-		for curr in range(nr_packets):
-			try:
-				prev = curr - 1
-				curr_packet = packet_dict[curr]
-				prev_packet = packet_dict[prev]
-			except:
-				# there is no pair of packets
-				continue
-
-			delta = round(float(curr_packet[0] - prev_packet[0]),3)
-			jitter = round(float(delta - 1.0),3)
-			timestamp = int(round(curr_packet[0]))
-			rtt = round(float(curr_packet[3]),3)
-			cur_rrc = curr_packet[4]
-			cur_mode = curr_packet[5]
-			cur_submode = curr_packet[6]
-			cur_cellid = curr_packet[7]
-			cur_lac = curr_packet[8]
-			cur_rssi = curr_packet[9]
-			
-			w.writerow([timestamp, epoch, curr, delta, jitter, rtt, cur_rrc, cur_mode, cur_submode, cur_cellid, cur_lac, cur_rssi])
-
-
 #client
 def client( *args ):  
 	finish = 0
@@ -311,12 +200,6 @@ def client( *args ):
 			if iface != 'eth1':
 				wait_for_interface(iface)
 			try: 				
-				#ntp
-				#subprocess.call("/etc/init.d/ntp stop", shell=True)
-				#subprocess.call("pkill ntpd", shell=True)
-				#subprocess.call("ntpdate ntp1.uio.no", shell=True)
-				#subprocess.call("/etc/init.d/ntp start", shell=True)
-				
 				#UDP socket
 				while True:
 					try:
@@ -337,16 +220,6 @@ def client( *args ):
 
 				sent = send_socket( socket, server_addr, server_port, iface, nr_packets, epoch, filename )
 				
-				#recv: ON
-				#print >> sys.stderr, '\n', 'CLIENT - RECV'
-				#packets = recv_socket( socket, epoch )
-				
-				#packet loss
-				#percent_loss = packet_loss(nr_packets, rcv_packets)
-				#if (f == 0):
-                                #        print 'evaluation without interface issue\n'
-                                #        evaluate_packet( rcv_packets, epoch, nr_packets, ('CLIENT-'+iface+'-'+filename+time.strftime("%m%d%H:%M")) )
-
 				#socket
 				unset_socket( socket )
 				print >> sys.stderr, '\n', 'CLIENT - DONE'   
@@ -356,8 +229,6 @@ def client( *args ):
 					error = '%s %s %s %s %s %s %s' % (file, 'line', linenr, 'in', function, '->', e[:2])
 					print >> sys.stderr, error;
 				
-			#Poisson distribution sample: lambda
-			#intv = np.random.poisson(5, 1)
 			wait_for_min( 0.1 ) 
 			epoch+=1 
 
