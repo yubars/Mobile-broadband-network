@@ -49,20 +49,6 @@ def wait_for_min( mins ):
 		else:
 			break
 
-
-#TCP socket open
-def set_tcp_socket( server_addr, server_port ):
-	try:
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		return s
-	except socket.error as e:
-		if s:
-			s.close() 
-		print >> sys.stderr, "could not open socket: ", server_addr,":",server_port, e
-		raise
-
-
 #UDP socket open
 def set_udp_socket( iface, port ):
      try:
@@ -82,38 +68,13 @@ def set_udp_socket( iface, port ):
           raise
 
 
-#TCP/UDP socket close
+#UDP socket close
 def unset_socket( socket ):
 	try:
 		socket.close()
 	except socket.error as e:
 		print >> sys.stderr, "could not close socket: ", socket, e
 		raise
-
-
-#send
-def send_socket( s, client_addr, client_port, nr_packets, epoch ):
-	next_send_time = 0
-	for i in range(nr_packets):
-		# wait for next send time
-		while True:
-			curr_time = time.time()
-			delta = next_send_time - curr_time
-			if delta <= 0:
-				break
-			if delta > 0.05:
-				time.sleep(delta - 0.025)
-		# send packet
-		pkt_timestamp = time.time()
-		header = HEADER_FORMAT.pack(pkt_timestamp, epoch, i)
-		payload = header + PADDING
-		try:
-			s.sendto(payload, (client_addr, client_port))
-		except Exception as e:
-			print >> sys.stderr, 'sendto error:', e
-			break
-		# define next send time
-		next_send_time = time.time() + 1
 
 
 #receive
@@ -182,13 +143,7 @@ def server( *args ):
 		epoch = 1
 		while( epoch <= nr_probe ):
 			try:
-				#ntp
-				#subprocess.call("/etc/init.d/ntp stop", shell=True)
-				#subprocess.call("pkill ntpd", shell=True)
-				#subprocess.call("ntpdate 129.240.2.6", shell=True) #ntp1.uio.no
-				#subprocess.call("/etc/init.d/ntp start", shell=True)
 				
-				#UDP socket
 				while True:
 					try:
 						socket, addr = set_udp_socket( iface, server_port )
@@ -201,12 +156,6 @@ def server( *args ):
 				#recv: ON
 				print >> sys.stderr, '\n', 'SERVER - RECV'
 				rcv_packets, client_addr = recv_socket( socket, epoch )
-				#print 'packets received in server %d' % len(rcv_packets) + '\n'
-				#print 'packet loss is %d' % (nr_packets - len(rcv_packets)) + '\n'
-
-				#send: ON
-				#print >> sys.stderr, '\n', 'SERVER - SEND'
-				#send_socket( socket, client_addr[0], client_addr[1], nr_packets, epoch )
 				
 				evaluate_packet_delay( rcv_packets, epoch, nr_packets, ('SERVER-DELAY-'+iface+'-'+filename+time.strftime("%m%d%H:%M")) )
 				
