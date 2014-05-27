@@ -1,35 +1,32 @@
 #! /usr/bin/python
-# Written by Dan Mandle http://dan.mandle.me September 2012
-# License: GPL 2.0
- 
 import os
 from gps import *
 from time import *
 import time
 import threading
  
-gpsd = None #seting the global variable
+gpsd = None 
  
-os.system('clear') #clear the terminal (optional)
+os.system('clear') 
  
 class GpsPoller(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
-    global gpsd #bring it in scope
-    gpsd = gps(mode=WATCH_ENABLE) #starting the stream of info
+    global gpsd 
+    gpsd = gps(mode=WATCH_ENABLE) 
     self.current_value = None
-    self.running = True #setting the thread running to true
+    self.running = True 
  
   def run(self):
     global gpsd
     while gpsp.running:
-      gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
+      gpsd.next() 
 h = 1
  
 if __name__ == '__main__':
-  gpsp = GpsPoller() # create the thread
+  gpsp = GpsPoller() 
   try:
-    gpsp.start() # start it up
+    gpsp.start() 
     filename = "gps" + time.strftime("%m%d%H:%M") + ".csv"
     while True:
 	fh = open(filename,"a")
@@ -44,31 +41,18 @@ if __name__ == '__main__':
 		print '\ttimestamp:' , int(round(time.time()))  
 		print '\tlatitude:' , gpsd.fix.latitude
         	print '\tlongitude:' , gpsd.fix.longitude
-        	print '\tspeed' , gpsd.fix.speed  #,' + ', gpsd.fix.time
-      #print 'altitude (m)\n' , gpsd.fix.altitude
-	fh.write(str(int(round(time.time()))) + ',')
+        	print '\tspeed' , gpsd.fix.speed  
+      	fh.write(str(int(round(time.time()))) + ',')
 	fh.writelines(str(gpsd.fix.latitude) + ',')
 	fh.write(str(gpsd.fix.longitude)+ ',')
 	fh.write(str(gpsd.fix.speed)+ '\n')
-#	fh.write(str(gpsd.fix.altitude)+'\n')
-	
+
 	fh.close()
-#        print 'eps         ' , gpsd.fix.eps
- #       print 'epx         ' , gpsd.fix.epx
-  #      print 'epv         ' , gpsd.fix.epv
-   #     print 'ept         ' , gpsd.fix.ept
-    #    print 'speed (m/s) ' , gpsd.fix.speed
-     #   print 'climb       ' , gpsd.fix.climb
-      #  print 'track       ' , gpsd.fix.track
-       # print 'mode        ' , gpsd.fix.mode
-        #print
-        #print 'sats        ' , gpsd.satellites
+	time.sleep(1) 
  
-        time.sleep(1) #set to whatever
- 
-  except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
+  except (KeyboardInterrupt, SystemExit): 
     print "\nKilling Thread..."
     gpsp.running = False
-    gpsp.join() # wait for the thread to finish what it's doing
+    gpsp.join() 
   print "Done.\nExiting."      
   exit(0)
