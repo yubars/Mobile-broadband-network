@@ -1,4 +1,4 @@
-Following are the scripts that were used to measure MBB performance parameters. 
+Following are the scripts that I have used to measure and analyze MBB performance parameters. 
 interfaceinfo.py
 pathinfo.py
 client.py
